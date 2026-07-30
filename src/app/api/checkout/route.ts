@@ -1,19 +1,24 @@
 import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe/client";
 import { createClient } from "@/lib/supabase/server";
+import { PLANS, type PlanId } from "@/lib/stripe/plans";
 
 export async function POST(request: Request) {
-  const { productId, quantity = 1 } = await request.json();
+  const { planId } = await request.json();
 
-  if (!productId) {
+  if (!planId || !(planId in PLANS)) {
+    return NextResponse.json({ error: "Invalid planId" }, { status: 400 });
+  }
+
+  const plan = PLANS[planId as PlanId];
+  if (!plan.priceId) {
     return NextResponse.json(
-      { error: "productId is required" },
-      { status: 400 },
+      { error: `No Stripe price configured for plan "${planId}" — set its env var in .env.local` },
+      { status: 500 },
     );
   }
 
   const supabase = await createClient();
-
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -22,36 +27,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const { data: product, error } = await supabase
-    .from("products")
-    .select("*")
-    .eq("id", productId)
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("stripe_customer_id")
+    .eq("id", user.id)
     .single();
-
-  if (error || !product) {
-    return NextResponse.json({ error: "Product not found" }, { status: 404 });
-  }
 
   const origin = request.headers.get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL;
 
   const session = await stripe.checkout.sessions.create({
-    mode: "payment",
+    mode: "subscription",
     client_reference_id: user.id,
-    line_items: [
-      product.stripe_price_id
-        ? { price: product.stripe_price_id, quantity }
-        : {
-            price_data: {
-              currency: product.currency,
-              product_data: { name: product.name },
-              unit_amount: product.price_cents,
-            },
-            quantity,
-          },
-    ],
-    success_url: `${origin}/dashboard/orders?success=true`,
-    cancel_url: `${origin}/dashboard/products?canceled=true`,
-    metadata: { productId: product.id },
+    customer: profile?.stripe_customer_id ?? undefined,
+    customer_email: profile?.stripe_customer_id ? undefined : user.email,
+    line_items: [{ price: plan.priceId, quantity: 1 }],
+    success_url: `${origin}/dashboard/billing?success=true`,
+    cancel_url: `${origin}/dashboard/billing?canceled=true`,
+    metadata: { planId, userId: user.id },
+    subscription_data: { metadata: { planId, userId: user.id } },
   });
 
   return NextResponse.json({ url: session.url });

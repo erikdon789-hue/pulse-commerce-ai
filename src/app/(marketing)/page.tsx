@@ -1,27 +1,33 @@
 import Link from "next/link";
-import { Bot, LineChart, ShieldCheck } from "lucide-react";
+import { Sparkles, Palette, Megaphone, Store } from "lucide-react";
 import { Navbar } from "@/components/marketing/navbar";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 const features = [
   {
-    icon: Bot,
-    title: "AI shopping assistant",
+    icon: Sparkles,
+    title: "Product viability analysis",
     description:
-      "An OpenAI-powered chat assistant helps customers find the right product and answers questions in real time.",
+      "Paste a product idea or an Alibaba/AliExpress link. Get a viability score, target audience, competitors, and marketing angles before you commit.",
   },
   {
-    icon: LineChart,
-    title: "Smart recommendations",
+    icon: Palette,
+    title: "Full brand identity",
     description:
-      "Product embeddings drive personalized recommendations that boost conversion without manual merchandising.",
+      "AI generates a brand name, slogan, color palette, fonts, and an actual generated logo and ad creatives — not just a brief.",
   },
   {
-    icon: ShieldCheck,
-    title: "Stripe-native billing",
+    icon: Megaphone,
+    title: "Copy & ads, written for you",
     description:
-      "Checkout, subscriptions, and webhooks are wired to Stripe from day one, with orders synced to Supabase.",
+      "Product titles, descriptions, FAQs, SEO content, and TikTok/Reels/Facebook ad scripts and hooks, generated in your brand's voice.",
+  },
+  {
+    icon: Store,
+    title: "Pushed straight to Shopify",
+    description:
+      "Connect your existing Shopify store and push the collection, product, and content directly via the Admin API. No copy-pasting.",
   },
 ];
 
@@ -32,15 +38,18 @@ export default function HomePage() {
       <main className="flex-1">
         <section className="mx-auto max-w-6xl px-6 py-24 text-center">
           <h1 className="text-4xl font-semibold tracking-tight sm:text-6xl">
-            The AI-powered e-commerce platform for modern storefronts
+            Turn a product idea into a live Shopify store
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-neutral-600 dark:text-neutral-300">
-            Pulse Commerce AI combines Supabase, Stripe, and OpenAI so you can
-            launch a smart storefront without stitching services together
-            yourself.
+            Pulse Commerce AI is an AI Shopify store builder. Give it a product
+            idea or a supplier link — it analyzes the opportunity, builds your
+            brand, writes every piece of copy and ad creative, and pushes it
+            straight into your Shopify store.
           </p>
           <div className="mt-10 flex items-center justify-center gap-4">
-            <Button size="lg">Start free trial</Button>
+            <Link href="/dashboard/new">
+              <Button size="lg">Build a store</Button>
+            </Link>
             <Link href="/pricing">
               <Button size="lg" variant="secondary">
                 View pricing
@@ -50,7 +59,7 @@ export default function HomePage() {
         </section>
 
         <section className="mx-auto max-w-6xl px-6 pb-24">
-          <div className="grid gap-6 sm:grid-cols-3">
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {features.map(({ icon: Icon, title, description }) => (
               <Card key={title}>
                 <Icon className="size-6 text-violet-600" />

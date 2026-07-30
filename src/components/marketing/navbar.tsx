@@ -14,7 +14,9 @@ export function Navbar() {
           <Link href="/pricing">Pricing</Link>
           <Link href="/dashboard">Dashboard</Link>
         </nav>
-        <Button size="sm">Get started</Button>
+        <Link href="/dashboard/new">
+          <Button size="sm">Get started</Button>
+        </Link>
       </div>
     </header>
   );

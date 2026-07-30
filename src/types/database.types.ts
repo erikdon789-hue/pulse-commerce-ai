@@ -1,5 +1,5 @@
-// Hand-written to match supabase/migrations/0001_init.sql.
-// Once you have a live Supabase project, regenerate with:
+// Hand-written to match supabase/migrations/0001_init.sql + 0002_store_builder.sql.
+// Once you have live, working Data API access, regenerate with:
 //   npx supabase gen types typescript --project-id <project-id> > src/types/database.types.ts
 
 export type Json =
@@ -19,6 +19,7 @@ export interface Database {
           email: string;
           full_name: string | null;
           stripe_customer_id: string | null;
+          credits_balance: number;
           created_at: string;
         };
         Insert: {
@@ -26,6 +27,7 @@ export interface Database {
           email: string;
           full_name?: string | null;
           stripe_customer_id?: string | null;
+          credits_balance?: number;
           created_at?: string;
         };
         Update: {
@@ -33,141 +35,457 @@ export interface Database {
           email?: string;
           full_name?: string | null;
           stripe_customer_id?: string | null;
+          credits_balance?: number;
           created_at?: string;
         };
         Relationships: [];
       };
-      products: {
+      stores: {
         Row: {
           id: string;
           owner_id: string;
           name: string;
-          description: string | null;
-          price_cents: number;
-          currency: string;
-          image_url: string | null;
-          stripe_price_id: string | null;
-          embedding: number[] | null;
+          source_type: "idea" | "link";
+          source_input: string;
+          status: "draft" | "building" | "ready" | "connected" | "launched" | "failed";
+          collection_title: string | null;
+          collection_description: string | null;
           created_at: string;
+          updated_at: string;
         };
         Insert: {
           id?: string;
           owner_id: string;
           name: string;
-          description?: string | null;
-          price_cents: number;
-          currency?: string;
-          image_url?: string | null;
-          stripe_price_id?: string | null;
-          embedding?: number[] | null;
+          source_type: "idea" | "link";
+          source_input: string;
+          status?: "draft" | "building" | "ready" | "connected" | "launched" | "failed";
+          collection_title?: string | null;
+          collection_description?: string | null;
           created_at?: string;
+          updated_at?: string;
         };
         Update: {
           id?: string;
           owner_id?: string;
           name?: string;
-          description?: string | null;
-          price_cents?: number;
-          currency?: string;
-          image_url?: string | null;
-          stripe_price_id?: string | null;
-          embedding?: number[] | null;
+          source_type?: "idea" | "link";
+          source_input?: string;
+          status?: "draft" | "building" | "ready" | "connected" | "launched" | "failed";
+          collection_title?: string | null;
+          collection_description?: string | null;
           created_at?: string;
+          updated_at?: string;
         };
         Relationships: [
           {
-            foreignKeyName: "products_owner_id_fkey";
+            foreignKeyName: "stores_owner_id_fkey";
             columns: ["owner_id"];
             referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
         ];
       };
-      orders: {
+      store_products: {
         Row: {
           id: string;
-          buyer_id: string;
-          stripe_checkout_session_id: string | null;
-          status: "pending" | "paid" | "fulfilled" | "canceled";
-          total_cents: number;
+          store_id: string;
+          source_url: string | null;
+          title: string;
+          description: string | null;
+          price_cents: number | null;
           currency: string;
+          images: Json;
+          raw_fetch_data: Json | null;
           created_at: string;
         };
         Insert: {
           id?: string;
-          buyer_id: string;
-          stripe_checkout_session_id?: string | null;
-          status?: "pending" | "paid" | "fulfilled" | "canceled";
-          total_cents: number;
+          store_id: string;
+          source_url?: string | null;
+          title: string;
+          description?: string | null;
+          price_cents?: number | null;
           currency?: string;
+          images?: Json;
+          raw_fetch_data?: Json | null;
           created_at?: string;
         };
         Update: {
           id?: string;
-          buyer_id?: string;
-          stripe_checkout_session_id?: string | null;
-          status?: "pending" | "paid" | "fulfilled" | "canceled";
-          total_cents?: number;
+          store_id?: string;
+          source_url?: string | null;
+          title?: string;
+          description?: string | null;
+          price_cents?: number | null;
           currency?: string;
+          images?: Json;
+          raw_fetch_data?: Json | null;
           created_at?: string;
         };
         Relationships: [
           {
-            foreignKeyName: "orders_buyer_id_fkey";
-            columns: ["buyer_id"];
-            referencedRelation: "profiles";
+            foreignKeyName: "store_products_store_id_fkey";
+            columns: ["store_id"];
+            referencedRelation: "stores";
             referencedColumns: ["id"];
           },
         ];
       };
-      order_items: {
+      product_analysis: {
         Row: {
           id: string;
-          order_id: string;
-          product_id: string;
-          quantity: number;
-          unit_price_cents: number;
+          store_id: string;
+          viability_score: number;
+          viability_reasoning: string;
+          target_audience: Json;
+          competitors: Json;
+          positioning: string;
+          marketing_angles: Json;
+          created_at: string;
         };
         Insert: {
           id?: string;
-          order_id: string;
-          product_id: string;
-          quantity: number;
-          unit_price_cents: number;
+          store_id: string;
+          viability_score: number;
+          viability_reasoning: string;
+          target_audience?: Json;
+          competitors?: Json;
+          positioning: string;
+          marketing_angles?: Json;
+          created_at?: string;
         };
         Update: {
           id?: string;
-          order_id?: string;
-          product_id?: string;
-          quantity?: number;
-          unit_price_cents?: number;
+          store_id?: string;
+          viability_score?: number;
+          viability_reasoning?: string;
+          target_audience?: Json;
+          competitors?: Json;
+          positioning?: string;
+          marketing_angles?: Json;
+          created_at?: string;
         };
         Relationships: [
           {
-            foreignKeyName: "order_items_order_id_fkey";
-            columns: ["order_id"];
-            referencedRelation: "orders";
+            foreignKeyName: "product_analysis_store_id_fkey";
+            columns: ["store_id"];
+            referencedRelation: "stores";
             referencedColumns: ["id"];
           },
+        ];
+      };
+      brand_identity: {
+        Row: {
+          id: string;
+          store_id: string;
+          brand_name: string;
+          slogan: string;
+          colors: Json;
+          fonts: Json;
+          tone_of_voice: string | null;
+          logo_url: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          store_id: string;
+          brand_name: string;
+          slogan: string;
+          colors?: Json;
+          fonts?: Json;
+          tone_of_voice?: string | null;
+          logo_url?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          store_id?: string;
+          brand_name?: string;
+          slogan?: string;
+          colors?: Json;
+          fonts?: Json;
+          tone_of_voice?: string | null;
+          logo_url?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
           {
-            foreignKeyName: "order_items_product_id_fkey";
-            columns: ["product_id"];
-            referencedRelation: "products";
+            foreignKeyName: "brand_identity_store_id_fkey";
+            columns: ["store_id"];
+            referencedRelation: "stores";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      creative_assets: {
+        Row: {
+          id: string;
+          store_id: string;
+          type: "logo" | "ad_banner" | "social_ad";
+          platform: "tiktok" | "instagram" | "facebook" | null;
+          brief_text: string;
+          image_url: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          store_id: string;
+          type: "logo" | "ad_banner" | "social_ad";
+          platform?: "tiktok" | "instagram" | "facebook" | null;
+          brief_text: string;
+          image_url?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          store_id?: string;
+          type?: "logo" | "ad_banner" | "social_ad";
+          platform?: "tiktok" | "instagram" | "facebook" | null;
+          brief_text?: string;
+          image_url?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "creative_assets_store_id_fkey";
+            columns: ["store_id"];
+            referencedRelation: "stores";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      product_content: {
+        Row: {
+          id: string;
+          store_product_id: string;
+          title: string;
+          description: string;
+          benefits: Json;
+          faqs: Json;
+          review_placeholders: Json;
+          pricing_strategy: Json;
+          upsells: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          store_product_id: string;
+          title: string;
+          description: string;
+          benefits?: Json;
+          faqs?: Json;
+          review_placeholders?: Json;
+          pricing_strategy?: Json;
+          upsells?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          store_product_id?: string;
+          title?: string;
+          description?: string;
+          benefits?: Json;
+          faqs?: Json;
+          review_placeholders?: Json;
+          pricing_strategy?: Json;
+          upsells?: Json;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "product_content_store_product_id_fkey";
+            columns: ["store_product_id"];
+            referencedRelation: "store_products";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      seo_content: {
+        Row: {
+          id: string;
+          store_product_id: string;
+          seo_title: string;
+          meta_description: string;
+          keywords: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          store_product_id: string;
+          seo_title: string;
+          meta_description: string;
+          keywords?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          store_product_id?: string;
+          seo_title?: string;
+          meta_description?: string;
+          keywords?: Json;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "seo_content_store_product_id_fkey";
+            columns: ["store_product_id"];
+            referencedRelation: "store_products";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      marketing_content: {
+        Row: {
+          id: string;
+          store_id: string;
+          platform: "tiktok" | "instagram_reels" | "facebook";
+          hooks: Json;
+          scripts: Json;
+          captions: Json;
+          banner_copy: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          store_id: string;
+          platform: "tiktok" | "instagram_reels" | "facebook";
+          hooks?: Json;
+          scripts?: Json;
+          captions?: Json;
+          banner_copy?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          store_id?: string;
+          platform?: "tiktok" | "instagram_reels" | "facebook";
+          hooks?: Json;
+          scripts?: Json;
+          captions?: Json;
+          banner_copy?: Json;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "marketing_content_store_id_fkey";
+            columns: ["store_id"];
+            referencedRelation: "stores";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      shopify_connections: {
+        Row: {
+          id: string;
+          store_id: string;
+          shop_domain: string;
+          access_token: string;
+          scopes: Json;
+          connected_at: string;
+        };
+        Insert: {
+          id?: string;
+          store_id: string;
+          shop_domain: string;
+          access_token: string;
+          scopes?: Json;
+          connected_at?: string;
+        };
+        Update: {
+          id?: string;
+          store_id?: string;
+          shop_domain?: string;
+          access_token?: string;
+          scopes?: Json;
+          connected_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "shopify_connections_store_id_fkey";
+            columns: ["store_id"];
+            referencedRelation: "stores";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      build_jobs: {
+        Row: {
+          id: string;
+          store_id: string;
+          status: "pending" | "running" | "completed" | "failed";
+          current_step: string | null;
+          steps_completed: Json;
+          error: string | null;
+          started_at: string;
+          completed_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          store_id: string;
+          status?: "pending" | "running" | "completed" | "failed";
+          current_step?: string | null;
+          steps_completed?: Json;
+          error?: string | null;
+          started_at?: string;
+          completed_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          store_id?: string;
+          status?: "pending" | "running" | "completed" | "failed";
+          current_step?: string | null;
+          steps_completed?: Json;
+          error?: string | null;
+          started_at?: string;
+          completed_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "build_jobs_store_id_fkey";
+            columns: ["store_id"];
+            referencedRelation: "stores";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      credit_ledger: {
+        Row: {
+          id: string;
+          owner_id: string;
+          amount: number;
+          reason: "subscription_grant" | "store_build" | "purchase";
+          stripe_event_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          amount: number;
+          reason: "subscription_grant" | "store_build" | "purchase";
+          stripe_event_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          owner_id?: string;
+          amount?: number;
+          reason?: "subscription_grant" | "store_build" | "purchase";
+          stripe_event_id?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "credit_ledger_owner_id_fkey";
+            columns: ["owner_id"];
+            referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
         ];
       };
     };
     Views: Record<string, never>;
-    Functions: {
-      match_products: {
-        Args: {
-          query_embedding: number[];
-          match_count?: number;
-        };
-        Returns: Database["public"]["Tables"]["products"]["Row"][];
-      };
-    };
+    Functions: Record<string, never>;
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };

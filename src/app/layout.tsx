@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Pulse Commerce AI",
-  description: "AI-powered e-commerce, from storefront to checkout.",
+  description: "AI Shopify store builder — from product idea to launched store.",
 };
 
 export default function RootLayout({

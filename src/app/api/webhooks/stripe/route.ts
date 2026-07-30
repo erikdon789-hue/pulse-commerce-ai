@@ -2,6 +2,36 @@ import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe/client";
 import { createServiceClient } from "@/lib/supabase/service";
+import { PLANS, planIdForPriceId } from "@/lib/stripe/plans";
+
+type ServiceClient = ReturnType<typeof createServiceClient>;
+
+async function grantCredits(
+  supabase: ServiceClient,
+  userId: string,
+  amount: number,
+  stripeEventId: string,
+) {
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("credits_balance")
+    .eq("id", userId)
+    .single();
+
+  if (!profile) return;
+
+  await supabase
+    .from("profiles")
+    .update({ credits_balance: profile.credits_balance + amount })
+    .eq("id", userId);
+
+  await supabase.from("credit_ledger").insert({
+    owner_id: userId,
+    amount,
+    reason: "subscription_grant",
+    stripe_event_id: stripeEventId,
+  });
+}
 
 export async function POST(request: Request) {
   const body = await request.text();
@@ -29,21 +59,42 @@ export async function POST(request: Request) {
     );
   }
 
+  const supabase = createServiceClient();
+
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
+    const userId = session.client_reference_id ?? session.metadata?.userId;
+    const planId = session.metadata?.planId as keyof typeof PLANS | undefined;
 
-    if (session.client_reference_id) {
-      const supabase = createServiceClient();
-      await supabase.from("orders").upsert(
-        {
-          buyer_id: session.client_reference_id,
-          stripe_checkout_session_id: session.id,
-          status: "paid",
-          total_cents: session.amount_total ?? 0,
-          currency: session.currency ?? "usd",
-        },
-        { onConflict: "stripe_checkout_session_id" },
-      );
+    if (userId && planId && PLANS[planId]) {
+      await grantCredits(supabase, userId, PLANS[planId].credits, event.id);
+
+      if (session.customer) {
+        await supabase
+          .from("profiles")
+          .update({ stripe_customer_id: session.customer as string })
+          .eq("id", userId);
+      }
+    }
+  }
+
+  // Recurring renewal — grant the plan's monthly credits again each cycle.
+  // Skip the very first invoice, since checkout.session.completed above
+  // already granted credits for it.
+  if (event.type === "invoice.payment_succeeded") {
+    const invoice = event.data.object as Stripe.Invoice;
+    const isFirstInvoice = invoice.billing_reason === "subscription_create";
+
+    if (!isFirstInvoice) {
+      const line = invoice.lines.data[0];
+      const priceId = line?.pricing?.price_details?.price;
+      const priceIdString = typeof priceId === "string" ? priceId : priceId?.id;
+      const planId = priceIdString ? planIdForPriceId(priceIdString) : null;
+      const userId = line?.metadata?.userId;
+
+      if (planId && userId) {
+        await grantCredits(supabase, userId, PLANS[planId].credits, event.id);
+      }
     }
   }
 

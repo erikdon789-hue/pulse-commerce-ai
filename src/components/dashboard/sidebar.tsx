@@ -1,11 +1,10 @@
 import Link from "next/link";
-import { LayoutDashboard, Package, Receipt, Settings, Sparkles } from "lucide-react";
+import { LayoutDashboard, PlusCircle, CreditCard, Sparkles } from "lucide-react";
 
 const links = [
-  { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
-  { href: "/dashboard/products", label: "Products", icon: Package },
-  { href: "/dashboard/orders", label: "Orders", icon: Receipt },
-  { href: "/dashboard/settings", label: "Settings", icon: Settings },
+  { href: "/dashboard", label: "My Stores", icon: LayoutDashboard },
+  { href: "/dashboard/new", label: "New Store", icon: PlusCircle },
+  { href: "/dashboard/billing", label: "Billing", icon: CreditCard },
 ];
 
 export function Sidebar() {
