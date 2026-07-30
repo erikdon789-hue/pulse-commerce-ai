@@ -165,7 +165,7 @@ export default function NewStorePage() {
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 
-          <Button type="submit" disabled={loading} className="w-full">
+          <Button type="submit" loading={loading} className="w-full">
             {loading ? "Saving…" : "Continue"}
           </Button>
         </form>
@@ -213,7 +213,7 @@ export default function NewStorePage() {
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 
-        <Button type="submit" disabled={loading} className="w-full">
+        <Button type="submit" loading={loading} className="w-full">
           {loading ? "Working…" : "Continue"}
         </Button>
       </form>

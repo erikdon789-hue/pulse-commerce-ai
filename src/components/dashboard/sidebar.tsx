@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { LayoutDashboard, PlusCircle, CreditCard, Sparkles } from "lucide-react";
+import { SignOutButton } from "@/components/dashboard/sign-out-button";
 
 const links = [
   { href: "/dashboard", label: "My Stores", icon: LayoutDashboard },
@@ -9,12 +10,12 @@ const links = [
 
 export function Sidebar() {
   return (
-    <aside className="hidden w-60 shrink-0 border-r border-neutral-200 p-4 sm:block dark:border-neutral-800">
+    <aside className="hidden w-60 shrink-0 flex-col border-r border-neutral-200 p-4 sm:flex dark:border-neutral-800">
       <Link href="/" className="mb-8 flex items-center gap-2 px-2 font-semibold">
         <Sparkles className="size-5 text-violet-600" />
         Pulse Commerce AI
       </Link>
-      <nav className="flex flex-col gap-1">
+      <nav className="flex flex-1 flex-col gap-1">
         {links.map(({ href, label, icon: Icon }) => (
           <Link
             key={href}
@@ -26,6 +27,7 @@ export function Sidebar() {
           </Link>
         ))}
       </nav>
+      <SignOutButton />
     </aside>
   );
 }

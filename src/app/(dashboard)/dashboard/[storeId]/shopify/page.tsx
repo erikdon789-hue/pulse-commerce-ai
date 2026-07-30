@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useState } from "react";
+import { CheckCircle2 } from "lucide-react";
 import { Card, cardClassName } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -89,24 +90,28 @@ export default function ShopifyConnectPage({
             />
           </label>
           {error && <p className="text-sm text-red-600">{error}</p>}
-          <Button type="submit" disabled={loading} className="w-full">
+          <Button type="submit" loading={loading} className="w-full">
             {loading ? "Connecting…" : "Connect store"}
           </Button>
         </form>
       ) : (
         <Card className="mt-6">
-          <p className="text-sm">
+          <p className="flex items-center gap-2 text-sm">
+            <CheckCircle2 className="size-4 text-emerald-600" />
             Connected to <strong>{connectedShop.name}</strong>.
           </p>
 
           {!pushResult ? (
-            <Button className="mt-4" onClick={handlePush} disabled={loading}>
+            <Button className="mt-4" onClick={handlePush} loading={loading}>
               {loading ? "Pushing…" : "Push to Shopify"}
             </Button>
           ) : (
             <div className="mt-4 text-sm text-neutral-600 dark:text-neutral-300">
-              <p>Collection and product created in your Shopify admin.</p>
-              <p className="mt-1">Product handle: {pushResult.product.handle}</p>
+              <p className="flex items-center gap-2 font-medium text-emerald-600 dark:text-emerald-400">
+                <CheckCircle2 className="size-4" />
+                Collection and product created in your Shopify admin.
+              </p>
+              <p className="mt-2">Product handle: {pushResult.product.handle}</p>
               <p>Collection handle: {pushResult.collection.handle}</p>
             </div>
           )}

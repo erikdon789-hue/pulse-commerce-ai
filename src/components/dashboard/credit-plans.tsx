@@ -45,7 +45,8 @@ export function CreditPlans() {
             <Button
               className="mt-4 w-full"
               variant="secondary"
-              disabled={loadingPlan !== null}
+              disabled={loadingPlan !== null && loadingPlan !== plan.id}
+              loading={loadingPlan === plan.id}
               onClick={() => handleSubscribe(plan.id)}
             >
               {loadingPlan === plan.id ? "Redirecting…" : "Subscribe"}

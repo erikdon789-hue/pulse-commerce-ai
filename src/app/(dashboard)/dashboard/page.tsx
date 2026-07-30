@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { StatusBadge } from "@/components/dashboard/status-badge";
 import type { Store } from "@/types";
 
 async function getStores(): Promise<{ stores: Store[]; error: "not-configured" | null }> {
@@ -25,15 +26,6 @@ async function getStores(): Promise<{ stores: Store[]; error: "not-configured" |
     return { stores: [], error: "not-configured" };
   }
 }
-
-const STATUS_LABEL: Record<Store["status"], string> = {
-  draft: "Draft",
-  building: "Building…",
-  ready: "Ready",
-  connected: "Connected to Shopify",
-  launched: "Launched",
-  failed: "Failed",
-};
 
 export default async function DashboardStoresPage() {
   const { stores, error } = await getStores();
@@ -74,9 +66,9 @@ export default async function DashboardStoresPage() {
                 <p className="mt-1 line-clamp-2 text-sm text-neutral-600 dark:text-neutral-300">
                   {store.source_input}
                 </p>
-                <span className="mt-4 inline-block rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
-                  {STATUS_LABEL[store.status]}
-                </span>
+                <div className="mt-4">
+                  <StatusBadge status={store.status} />
+                </div>
               </Card>
             </Link>
           ))}

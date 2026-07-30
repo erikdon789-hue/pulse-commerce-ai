@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Check, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { StatusBadge } from "@/components/dashboard/status-badge";
+import { ViabilityScore } from "@/components/dashboard/viability-score";
 import { cn } from "@/lib/utils";
 import type { StoreDetail } from "@/lib/pipeline/get-store-detail";
 import type { PipelineStep } from "@/types";
@@ -67,7 +70,10 @@ export function StoreBuilder({ initial }: { initial: StoreDetail }) {
     <div>
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">{detail.store.name}</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-semibold">{detail.store.name}</h1>
+            <StatusBadge status={detail.store.status} />
+          </div>
           <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
             {detail.store.source_input}
           </p>
@@ -82,30 +88,35 @@ export function StoreBuilder({ initial }: { initial: StoreDetail }) {
       <Card className="mt-6">
         <h2 className="font-semibold">Build progress</h2>
         <ul className="mt-4 space-y-2">
-          {GENERATION_STEPS.map(({ step, label }) => (
-            <li key={step} className="flex items-center gap-2 text-sm">
-              <span
-                className={cn(
-                  "flex size-5 shrink-0 items-center justify-center rounded-full text-xs",
-                  isDone[step]
-                    ? "bg-violet-600 text-white"
-                    : "border border-neutral-300 text-neutral-400 dark:border-neutral-700",
-                )}
-              >
-                {isDone[step] ? "✓" : ""}
-              </span>
-              <span className={isDone[step] ? "" : "text-neutral-500"}>{label}</span>
-              {currentStep === label && (
-                <span className="text-xs text-violet-600">running…</span>
-              )}
-            </li>
-          ))}
+          {GENERATION_STEPS.map(({ step, label }) => {
+            const isRunning = currentStep === label;
+            return (
+              <li key={step} className="flex items-center gap-2 text-sm">
+                <span
+                  className={cn(
+                    "flex size-5 shrink-0 items-center justify-center rounded-full",
+                    isDone[step]
+                      ? "bg-violet-600 text-white"
+                      : "border border-neutral-300 text-neutral-400 dark:border-neutral-700",
+                  )}
+                >
+                  {isDone[step] ? (
+                    <Check className="size-3" />
+                  ) : isRunning ? (
+                    <Loader2 className="size-3 animate-spin text-violet-600" />
+                  ) : null}
+                </span>
+                <span className={isDone[step] ? "" : "text-neutral-500"}>{label}</span>
+                {isRunning && <span className="text-xs text-violet-600">running…</span>}
+              </li>
+            );
+          })}
         </ul>
 
         {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
 
         {!allDone && (
-          <Button className="mt-4" onClick={runPipeline} disabled={running}>
+          <Button className="mt-4" onClick={runPipeline} loading={running}>
             {running ? "Building…" : "Run pipeline"}
           </Button>
         )}
@@ -192,8 +203,8 @@ function AnalysisPanel({ detail }: { detail: StoreDetail }) {
   return (
     <div className="space-y-4 text-sm">
       <div>
-        <span className="font-semibold">Viability score:</span> {a.viability_score}/100
-        <p className="mt-1 text-neutral-600 dark:text-neutral-300">{a.viability_reasoning}</p>
+        <ViabilityScore score={a.viability_score} />
+        <p className="mt-2 text-neutral-600 dark:text-neutral-300">{a.viability_reasoning}</p>
       </div>
       <div>
         <span className="font-semibold">Positioning:</span>
