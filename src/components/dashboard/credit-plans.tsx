@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { fetchJson } from "@/lib/api/fetch-json";
 
 const PLANS = [
   { id: "starter", name: "Starter", price: "$19/mo", credits: 5 },
@@ -18,14 +19,12 @@ export function CreditPlans() {
     setLoadingPlan(planId);
     setError(null);
     try {
-      const res = await fetch("/api/checkout", {
+      const { url } = await fetchJson<{ url: string }>("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ planId }),
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Failed to start checkout");
-      window.location.assign(json.url);
+      window.location.assign(url);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to start checkout");
       setLoadingPlan(null);

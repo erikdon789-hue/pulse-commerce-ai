@@ -36,6 +36,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# shopify cli local state
+/.shopify/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

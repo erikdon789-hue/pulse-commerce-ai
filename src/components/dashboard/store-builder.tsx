@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { ViabilityScore } from "@/components/dashboard/viability-score";
 import { cn } from "@/lib/utils";
+import { fetchJson, ApiClientError } from "@/lib/api/fetch-json";
 import type { StoreDetail } from "@/lib/pipeline/get-store-detail";
 import type { PipelineStep } from "@/types";
 
@@ -52,14 +53,21 @@ export function StoreBuilder({ initial }: { initial: StoreDetail }) {
         if (isDone[step]) continue;
         setCurrentStep(label);
 
-        const res = await fetch(`/api/stores/${detail.store.id}/${step}`, { method: "POST" });
-        const json = await res.json();
-        if (!res.ok) throw new Error(json.error ?? `${label} failed`);
+        const data = await fetchJson<Record<string, unknown>>(
+          `/api/stores/${detail.store.id}/${step}`,
+          { method: "POST" },
+        );
 
-        setDetail((prev) => mergeStepResult(prev, step, json));
+        setDetail((prev) => mergeStepResult(prev, step, data));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Pipeline run failed");
+      setError(
+        err instanceof ApiClientError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : "Pipeline run failed",
+      );
     } finally {
       setRunning(false);
       setCurrentStep(null);

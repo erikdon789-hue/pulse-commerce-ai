@@ -1,14 +1,14 @@
-import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { apiSuccess, apiError, withRoute } from "@/lib/api/response";
 
-export async function GET() {
+export const GET = withRoute(async () => {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    return apiError("UNAUTHENTICATED", "Not authenticated", { status: 401 });
   }
 
   const { data: stores, error } = await supabase
@@ -18,27 +18,27 @@ export async function GET() {
     .order("created_at", { ascending: false });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return apiError("DATABASE_ERROR", error.message, { status: 500 });
   }
 
-  return NextResponse.json({ stores });
-}
+  return apiSuccess({ stores });
+});
 
-export async function POST(request: Request) {
+export const POST = withRoute(async (request: Request) => {
   const { name, source_type, source_input } = await request.json();
 
   if (!name || !source_type || !source_input) {
-    return NextResponse.json(
-      { error: "name, source_type, and source_input are required" },
+    return apiError(
+      "VALIDATION_ERROR",
+      "name, source_type, and source_input are required",
       { status: 400 },
     );
   }
 
   if (source_type !== "idea" && source_type !== "link") {
-    return NextResponse.json(
-      { error: "source_type must be 'idea' or 'link'" },
-      { status: 400 },
-    );
+    return apiError("VALIDATION_ERROR", "source_type must be 'idea' or 'link'", {
+      status: 400,
+    });
   }
 
   const supabase = await createClient();
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    return apiError("UNAUTHENTICATED", "Not authenticated", { status: 401 });
   }
 
   const { data: profile } = await supabase
@@ -57,8 +57,9 @@ export async function POST(request: Request) {
     .single();
 
   if (!profile || profile.credits_balance < 1) {
-    return NextResponse.json(
-      { error: "Not enough credits to start a new store build" },
+    return apiError(
+      "INSUFFICIENT_CREDITS",
+      "Not enough credits to start a new store build",
       { status: 402 },
     );
   }
@@ -70,7 +71,7 @@ export async function POST(request: Request) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return apiError("DATABASE_ERROR", error.message, { status: 500 });
   }
 
   // Reserve the credit up front rather than at completion, so a user can't
@@ -85,5 +86,5 @@ export async function POST(request: Request) {
     reason: "store_build",
   });
 
-  return NextResponse.json({ store }, { status: 201 });
-}
+  return apiSuccess({ store }, { status: 201 });
+});

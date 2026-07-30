@@ -1,0 +1,20 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "fec454d7257ba9a495b01abaadd843bf"
+name = "AI Store Builder"
+application_url = "https://curriculum-screen-elite-except.trycloudflare.com"
+embedded = false
+
+[webhooks]
+api_version = "2026-07"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "write_content,write_products"
+optional_scopes = [ ]
+use_legacy_install_flow = false
+
+[auth]
+redirect_urls = [
+  "https://curriculum-screen-elite-except.trycloudflare.com/api/shopify/oauth/callback"
+]

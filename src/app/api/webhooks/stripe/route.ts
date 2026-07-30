@@ -3,6 +3,7 @@ import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe/client";
 import { createServiceClient } from "@/lib/supabase/service";
 import { PLANS, planIdForPriceId } from "@/lib/stripe/plans";
+import { withRoute } from "@/lib/api/response";
 
 type ServiceClient = ReturnType<typeof createServiceClient>;
 
@@ -33,7 +34,7 @@ async function grantCredits(
   });
 }
 
-export async function POST(request: Request) {
+export const POST = withRoute(async (request: Request) => {
   const body = await request.text();
   const signature = request.headers.get("stripe-signature");
 
@@ -99,4 +100,4 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ received: true });
-}
+});

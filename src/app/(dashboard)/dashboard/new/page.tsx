@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { cardClassName } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { fetchJson } from "@/lib/api/fetch-json";
 
 type Mode = "idea" | "link";
 
@@ -32,7 +33,7 @@ export default function NewStorePage() {
     setError(null);
 
     try {
-      const storeRes = await fetch("/api/stores", {
+      const { store } = await fetchJson<{ store: { id: string } }>("/api/stores", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -41,19 +42,17 @@ export default function NewStorePage() {
           source_input: sourceInput,
         }),
       });
-      const storeJson = await storeRes.json();
-      if (!storeRes.ok) throw new Error(storeJson.error ?? "Failed to create store");
 
-      setStoreId(storeJson.store.id);
+      setStoreId(store.id);
 
       if (mode === "link") {
-        const previewRes = await fetch(`/api/stores/${storeJson.store.id}/ingest`, {
+        const { preview } = await fetchJson<{
+          preview: { title?: string; description?: string; images?: string[] } | null;
+        }>(`/api/stores/${store.id}/ingest`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ source_url: sourceInput }),
         });
-        const previewJson = await previewRes.json();
-        const preview = previewJson.preview;
         setDraft({
           title: preview?.title ?? "",
           description: preview?.description ?? "",
@@ -84,7 +83,7 @@ export default function NewStorePage() {
     setError(null);
 
     try {
-      const res = await fetch(`/api/stores/${storeId}/ingest`, {
+      await fetchJson(`/api/stores/${storeId}/ingest`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -96,8 +95,6 @@ export default function NewStorePage() {
           source_url: mode === "link" ? sourceInput : null,
         }),
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Failed to save product");
 
       router.push(`/dashboard/${storeId}`);
     } catch (err) {

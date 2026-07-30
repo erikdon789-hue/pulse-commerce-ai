@@ -1,11 +1,11 @@
 // Thin fetch-based wrapper around the Shopify Admin GraphQL API.
 //
-// We deliberately don't use @shopify/shopify-api here: that SDK is built
-// around a full OAuth app lifecycle (API secret, embedded-app config, Node
-// adapters). This app connects to a merchant's store via a static Custom App
-// Admin API access token they paste in themselves, so all we need is
-// authenticated fetch — no OAuth, no webhook HMAC verification, no app
-// installation flow.
+// We deliberately don't use @shopify/shopify-api here: that SDK bundles a
+// full app-lifecycle framework (webhook registration, session storage,
+// embedded-app helpers) this app doesn't need. This file only cares about a
+// resolved shop domain + access token — it's OAuth-agnostic by design. OAuth
+// itself (authorize/callback, HMAC verification, token exchange) lives in
+// ./oauth.ts.
 
 const SHOPIFY_API_VERSION = process.env.SHOPIFY_API_VERSION ?? "2026-07";
 

@@ -1,19 +1,20 @@
-import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe/client";
 import { createClient } from "@/lib/supabase/server";
 import { PLANS, type PlanId } from "@/lib/stripe/plans";
+import { apiSuccess, apiError, withRoute } from "@/lib/api/response";
 
-export async function POST(request: Request) {
+export const POST = withRoute(async (request: Request) => {
   const { planId } = await request.json();
 
   if (!planId || !(planId in PLANS)) {
-    return NextResponse.json({ error: "Invalid planId" }, { status: 400 });
+    return apiError("VALIDATION_ERROR", "Invalid planId", { status: 400 });
   }
 
   const plan = PLANS[planId as PlanId];
   if (!plan.priceId) {
-    return NextResponse.json(
-      { error: `No Stripe price configured for plan "${planId}" — set its env var in .env.local` },
+    return apiError(
+      "STRIPE_NOT_CONFIGURED",
+      `No Stripe price configured for plan "${planId}" — set its env var in .env.local`,
       { status: 500 },
     );
   }
@@ -24,7 +25,7 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    return apiError("UNAUTHENTICATED", "Not authenticated", { status: 401 });
   }
 
   const { data: profile } = await supabase
@@ -47,5 +48,5 @@ export async function POST(request: Request) {
     subscription_data: { metadata: { planId, userId: user.id } },
   });
 
-  return NextResponse.json({ url: session.url });
-}
+  return apiSuccess({ url: session.url });
+});
