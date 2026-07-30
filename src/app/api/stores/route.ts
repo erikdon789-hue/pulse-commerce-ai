@@ -65,7 +65,7 @@ export async function POST(request: Request) {
 
   const { data: store, error } = await supabase
     .from("stores")
-    .insert({ owner_id: user.id, name, source_type, source_input })
+    .insert({ owner_id: user.id, name, source_type, source_input, status: "draft" })
     .select()
     .single();
 
