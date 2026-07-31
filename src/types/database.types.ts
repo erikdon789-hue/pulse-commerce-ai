@@ -97,6 +97,10 @@ export interface Database {
           currency: string;
           images: Json;
           raw_fetch_data: Json | null;
+          shopify_product_id: string | null;
+          shopify_product_handle: string | null;
+          shopify_collection_id: string | null;
+          shopify_collection_handle: string | null;
           created_at: string;
         };
         Insert: {
@@ -109,6 +113,10 @@ export interface Database {
           currency?: string;
           images?: Json;
           raw_fetch_data?: Json | null;
+          shopify_product_id?: string | null;
+          shopify_product_handle?: string | null;
+          shopify_collection_id?: string | null;
+          shopify_collection_handle?: string | null;
           created_at?: string;
         };
         Update: {
@@ -121,6 +129,10 @@ export interface Database {
           currency?: string;
           images?: Json;
           raw_fetch_data?: Json | null;
+          shopify_product_id?: string | null;
+          shopify_product_handle?: string | null;
+          shopify_collection_id?: string | null;
+          shopify_collection_handle?: string | null;
           created_at?: string;
         };
         Relationships: [

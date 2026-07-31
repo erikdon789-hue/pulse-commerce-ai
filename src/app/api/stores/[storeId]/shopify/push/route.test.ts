@@ -54,11 +54,11 @@ const CONTENT_WITH_CALCULATED_PRICE = {
 
 const SEO_CONTENT = { keywords: ["mug", "ceramic"] };
 
-async function loadRouteWithMocks() {
+async function loadRouteWithMocks(productOverrides: Record<string, unknown> = {}) {
   vi.resetModules();
 
   const supabase = fakeSupabase({
-    store_products: { data: SUPPLIER_SOURCED_PRODUCT },
+    store_products: { data: { ...SUPPLIER_SOURCED_PRODUCT, ...productOverrides } },
     product_content: { data: CONTENT_WITH_CALCULATED_PRICE },
     seo_content: { data: SEO_CONTENT },
   });
@@ -109,5 +109,30 @@ describe("POST /api/stores/[storeId]/shopify/push — supplier-sourced product m
     expect(args.tags).toEqual(["mug", "ceramic"]);
     expect(args.descriptionHtml).toContain("Keeps drinks warm");
     expect(args.descriptionHtml).toContain("Dishwasher safe?");
+  });
+
+  // Regression test: a live push once succeeded, then a second push call
+  // (retry, double-click, slow-response resubmit) created a SECOND, duplicate
+  // product and collection in the real connected Shopify store, because
+  // nothing recorded that the product had already been pushed.
+  it("does not push again when the product was already pushed — returns the existing result instead", async () => {
+    const { POST, createShopifyProduct } = await loadRouteWithMocks({
+      shopify_product_id: "gid://shopify/Product/123",
+      shopify_product_handle: "ceramic-mug",
+      shopify_collection_id: "gid://shopify/Collection/456",
+      shopify_collection_handle: "collection",
+    });
+
+    const res = await POST(new Request("http://test", { method: "POST" }), {
+      params: Promise.resolve({ storeId: "store-1" }),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data.alreadyPushed).toBe(true);
+    expect(body.data.product.id).toBe("gid://shopify/Product/123");
+    expect(body.data.collection.id).toBe("gid://shopify/Collection/456");
+
+    // The whole point: no new Shopify product was created.
+    expect(createShopifyProduct).not.toHaveBeenCalled();
   });
 });

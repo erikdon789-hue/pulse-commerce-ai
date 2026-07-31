@@ -87,6 +87,18 @@ export const POST = withRoute(
       return apiError("PIPELINE_STEP_MISSING", "Run the content step first", { status: 400 });
     }
 
+    // Already pushed — return the existing result instead of creating a
+    // second, duplicate product/collection in the real Shopify store. A
+    // retried request, a double-click, or a slow-response resubmit would
+    // otherwise push again on every call.
+    if (product.shopify_product_id) {
+      return apiSuccess({
+        collection: { id: product.shopify_collection_id, handle: product.shopify_collection_handle },
+        product: { id: product.shopify_product_id, handle: product.shopify_product_handle },
+        alreadyPushed: true,
+      });
+    }
+
     try {
       const client = createShopifyAdminClient(connection.shop_domain, connection.access_token);
 
@@ -109,6 +121,16 @@ export const POST = withRoute(
         images: (product.images as unknown as string[]) ?? [],
         tags: (seo?.keywords as unknown as string[]) ?? [],
       });
+
+      await supabase
+        .from("store_products")
+        .update({
+          shopify_product_id: shopifyProduct.id,
+          shopify_product_handle: shopifyProduct.handle,
+          shopify_collection_id: collection.id,
+          shopify_collection_handle: collection.handle,
+        })
+        .eq("id", product.id);
 
       await supabase.from("stores").update({ status: "launched" }).eq("id", store.id);
       await markStepComplete(supabase, store.id, "shopify_push");
