@@ -1,4 +1,5 @@
 import type { NextResponse } from "next/server";
+import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { apiError, type ApiError } from "@/lib/api/response";
 import type { Store } from "@/types";
@@ -6,6 +7,25 @@ import type { Store } from "@/types";
 type Guard =
   | { error: NextResponse<ApiError> }
   | { error?: never; supabase: Awaited<ReturnType<typeof createClient>>; store: Store };
+
+type UserGuard =
+  | { error: NextResponse<ApiError> }
+  | { error?: never; supabase: Awaited<ReturnType<typeof createClient>>; user: User };
+
+// For routes that aren't scoped to a specific store — e.g. product
+// discovery/search, which a merchant uses before a store even exists.
+export async function requireUser(): Promise<UserGuard> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: apiError("UNAUTHENTICATED", "Not authenticated", { status: 401 }) };
+  }
+
+  return { supabase, user };
+}
 
 // Every pipeline route needs the same check: caller is authenticated and
 // owns the store referenced in the URL. RLS would reject a mismatched
