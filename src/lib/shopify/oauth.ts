@@ -74,7 +74,8 @@ export async function exchangeCodeForAccessToken(opts: {
     }),
   });
   if (!response.ok) {
-    throw new Error(`Shopify token exchange failed (${response.status})`);
+    const body = await response.text();
+    throw new Error(`Shopify token exchange failed (${response.status}): ${body}`);
   }
   return response.json();
 }

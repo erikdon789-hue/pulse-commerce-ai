@@ -1,8 +1,8 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-client_id = "fec454d7257ba9a495b01abaadd843bf"
-name = "AI Store Builder"
-application_url = "https://curriculum-screen-elite-except.trycloudflare.com"
+client_id = "0925b32b86e4850204886d6a2e035f45"
+name = "ai store builder 2"
+application_url = "https://reporters-families-webmasters-decisions.trycloudflare.com"
 embedded = false
 
 [webhooks]
@@ -10,11 +10,11 @@ api_version = "2026-07"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "write_content,write_products"
+scopes = "write_products,write_content"
 optional_scopes = [ ]
-use_legacy_install_flow = false
+use_legacy_install_flow = true
 
 [auth]
 redirect_urls = [
-  "https://curriculum-screen-elite-except.trycloudflare.com/api/shopify/oauth/callback"
+  "https://reporters-families-webmasters-decisions.trycloudflare.com/api/shopify/oauth/callback"
 ]
