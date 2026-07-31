@@ -7,12 +7,29 @@ import { withRoute } from "@/lib/api/response";
 
 type ServiceClient = ReturnType<typeof createServiceClient>;
 
+// Stripe can redeliver the same event (retries on non-2xx, and rarely even
+// without one — see their webhook docs). Write the ledger row FIRST, guarded
+// by a unique index on stripe_event_id (0004_credit_ledger_idempotency.sql):
+// if this event was already processed, the insert fails and credits are
+// never double-granted. Only update the balance after a successful insert.
 async function grantCredits(
   supabase: ServiceClient,
   userId: string,
   amount: number,
   stripeEventId: string,
 ) {
+  const { error: insertError } = await supabase.from("credit_ledger").insert({
+    owner_id: userId,
+    amount,
+    reason: "subscription_grant",
+    stripe_event_id: stripeEventId,
+  });
+
+  if (insertError) {
+    if (insertError.code === "23505") return; // already processed this event
+    throw insertError;
+  }
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("credits_balance")
@@ -25,13 +42,6 @@ async function grantCredits(
     .from("profiles")
     .update({ credits_balance: profile.credits_balance + amount })
     .eq("id", userId);
-
-  await supabase.from("credit_ledger").insert({
-    owner_id: userId,
-    amount,
-    reason: "subscription_grant",
-    stripe_event_id: stripeEventId,
-  });
 }
 
 export const POST = withRoute(async (request: Request) => {
