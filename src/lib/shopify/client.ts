@@ -98,11 +98,13 @@ export async function createShopifyProduct(
   input: CreateProductInput,
 ) {
   const productData = await client.request<{
-    productCreate: { product: { id: string; handle: string } };
+    productCreate: {
+      product: { id: string; handle: string; variants: { nodes: { id: string }[] } };
+    };
   }>(
     `mutation CreateProduct($product: ProductCreateInput!) {
       productCreate(product: $product) {
-        product { id handle }
+        product { id handle variants(first: 1) { nodes { id } } }
         userErrors { field message }
       }
     }`,
@@ -116,6 +118,14 @@ export async function createShopifyProduct(
   );
 
   const productId = productData.productCreate.product.id;
+  // productCreate always auto-creates one default variant for a new
+  // product — productVariantsBulkUpdate requires its id (it's an update
+  // mutation, not a create) or fails with "Product variant is missing ID
+  // attribute", confirmed against the real Admin API.
+  const defaultVariantId = productData.productCreate.product.variants.nodes[0]?.id;
+  if (!defaultVariantId) {
+    throw new ShopifyAdminError("Shopify did not return a default variant for the created product");
+  }
 
   await client.request(
     `mutation SetVariantPrice($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
@@ -125,7 +135,7 @@ export async function createShopifyProduct(
     }`,
     {
       productId,
-      variants: [{ price: input.priceAmount.toFixed(2) }],
+      variants: [{ id: defaultVariantId, price: input.priceAmount.toFixed(2) }],
     },
   );
 
