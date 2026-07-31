@@ -20,6 +20,7 @@ export interface PriceCalculationResult {
   rawPriceCents: number; // cost * multiplier, before psychological rounding
   minimumPriceCents: number; // cost * minimumProfitMultiplier, before rounding
   priceCents: number; // final price: max(rounded raw price, rounded floor)
+  flooredByMinimumProfit: boolean; // true when the minimum-profit floor, not the tier multiplier, determined the price
   profileId: string | null; // null when an inline profile object was used
 }
 
@@ -62,10 +63,9 @@ export function calculateSellingPrice(input: PriceCalculationInput): PriceCalcul
   const rawPriceCents = Math.round(costCents * tier.multiplier);
   const minimumPriceCents = Math.ceil(costCents * profile.minimumProfitMultiplier);
 
-  const priceCents = Math.max(
-    toPsychologicalPrice(rawPriceCents),
-    toPsychologicalPrice(minimumPriceCents),
-  );
+  const tierPriceCents = toPsychologicalPrice(rawPriceCents);
+  const floorPriceCents = toPsychologicalPrice(minimumPriceCents);
+  const priceCents = Math.max(tierPriceCents, floorPriceCents);
 
   return {
     costCents,
@@ -73,6 +73,7 @@ export function calculateSellingPrice(input: PriceCalculationInput): PriceCalcul
     rawPriceCents,
     minimumPriceCents,
     priceCents,
+    flooredByMinimumProfit: floorPriceCents > tierPriceCents,
     profileId,
   };
 }

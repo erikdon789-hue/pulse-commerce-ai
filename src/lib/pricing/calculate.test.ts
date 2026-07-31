@@ -63,6 +63,12 @@ describe("calculateSellingPrice", () => {
     expect(result.minimumPriceCents).toBe(12_000); // 1.2x
     expect(result.priceCents).toBe(12_099); // floor wins, still ends in .99
     expect(result.priceCents).toBeGreaterThanOrEqual(result.minimumPriceCents);
+    expect(result.flooredByMinimumProfit).toBe(true);
+  });
+
+  it("reports flooredByMinimumProfit: false when the tier multiplier alone determines the price", () => {
+    const result = calculateSellingPrice({ baseCostCents: 1_820 });
+    expect(result.flooredByMinimumProfit).toBe(false);
   });
 
   it("falls back to the default profile for an unknown profile id", () => {
