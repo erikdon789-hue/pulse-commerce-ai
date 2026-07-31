@@ -44,7 +44,7 @@ interface CjProductDetail {
   productNameEn: string;
   productSku: string;
   bigImage: string;
-  sellPrice: number;
+  sellPrice: string;
   categoryName: string;
 }
 
@@ -107,15 +107,39 @@ async function getValidAccessToken(apiKey: string): Promise<string> {
   return tokenState.accessToken;
 }
 
+// CJ's sellPrice is usually a plain decimal string ("9.14"), but for
+// products with variant-level pricing it's a range instead — observed in
+// two different formats depending on endpoint: "2.13 -- 7.21" (listV2) and
+// "2.13-7.21" (product/query). Confirmed against live API responses, not
+// documented anywhere.
+const PRICE_RANGE_RE = /^\s*([\d.]+)\s*--?\s*([\d.]+)\s*$/;
+
+function parseCjPrice(raw: string): {
+  price: NormalizedProduct["price"];
+  priceRange: NormalizedProduct["priceRange"];
+} {
+  const rangeMatch = raw.match(PRICE_RANGE_RE);
+  if (rangeMatch) {
+    const min = Number(rangeMatch[1]);
+    const max = Number(rangeMatch[2]);
+    return {
+      price: { amount: min, currency: "USD" },
+      priceRange: { min: { amount: min, currency: "USD" }, max: { amount: max, currency: "USD" } },
+    };
+  }
+  return { price: { amount: Number(raw), currency: "USD" }, priceRange: null };
+}
+
 function normalizeListProduct(p: CjListProduct): NormalizedProduct {
+  const { price, priceRange } = parseCjPrice(p.sellPrice);
   return {
     supplier: "cjdropshipping",
     supplierProductId: p.id,
     title: p.nameEn,
     description: null,
     images: p.bigImage ? [p.bigImage] : [],
-    price: { amount: Number(p.sellPrice), currency: "USD" },
-    priceRange: null,
+    price,
+    priceRange,
     minOrderQuantity: null,
     sourceUrl: null,
     category: [p.oneCategoryName, p.threeCategoryName].filter(Boolean).join(" / ") || null,
@@ -124,14 +148,15 @@ function normalizeListProduct(p: CjListProduct): NormalizedProduct {
 }
 
 function normalizeDetail(p: CjProductDetail): NormalizedProduct {
+  const { price, priceRange } = parseCjPrice(p.sellPrice);
   return {
     supplier: "cjdropshipping",
     supplierProductId: p.pid,
     title: p.productNameEn,
     description: null,
     images: p.bigImage ? [p.bigImage] : [],
-    price: { amount: Number(p.sellPrice), currency: "USD" },
-    priceRange: null,
+    price,
+    priceRange,
     minOrderQuantity: null,
     sourceUrl: null,
     category: p.categoryName ?? null,
