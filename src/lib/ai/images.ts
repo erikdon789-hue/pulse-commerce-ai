@@ -1,10 +1,15 @@
-import { openai } from "@/lib/openai/client";
+import { getOpenAIClient, AINotConfiguredError } from "@/lib/openai/client";
 
 // GPT image models always return base64-encoded images (no url option),
 // per the installed openai SDK's images.d.ts.
 const IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL ?? "gpt-image-2";
 
 export async function generateImageBuffer(prompt: string): Promise<Buffer> {
+  const openai = getOpenAIClient();
+  if (!openai) {
+    throw new AINotConfiguredError();
+  }
+
   const result = await openai.images.generate({
     model: IMAGE_MODEL,
     prompt,

@@ -5,6 +5,7 @@ import { generateImageBuffer } from "@/lib/ai/images";
 import { uploadGeneratedImage } from "@/lib/supabase/storage";
 import { creativeBriefsSchema } from "@/lib/ai/schemas";
 import { apiSuccess, apiError, withRoute } from "@/lib/api/response";
+import { AINotConfiguredError } from "@/lib/openai/client";
 
 export const POST = withRoute(
   async (_request: Request, { params }: { params: Promise<{ storeId: string }> }) => {
@@ -105,6 +106,9 @@ export const POST = withRoute(
 
       return apiSuccess({ creativeAssets: savedAssets });
     } catch (err) {
+      if (err instanceof AINotConfiguredError) {
+        return apiError("AI_NOT_CONFIGURED", err.message, { status: 503 });
+      }
       const message = err instanceof Error ? err.message : "Creative generation failed";
       await markJobFailed(supabase, store.id, message);
       return apiError("AI_GENERATION_ERROR", message, { status: 500 });

@@ -1,6 +1,6 @@
 import { zodTextFormat } from "openai/helpers/zod";
 import type { z } from "zod";
-import { openai } from "@/lib/openai/client";
+import { getOpenAIClient, AINotConfiguredError } from "@/lib/openai/client";
 
 // Current flagship chat model per the installed openai SDK's ChatModel type
 // (resources/shared.d.ts) — override via env if you want a cheaper/newer tier.
@@ -12,6 +12,11 @@ export async function generateStructured<Schema extends z.ZodType>(params: {
   instructions: string;
   input: string;
 }): Promise<z.infer<Schema>> {
+  const openai = getOpenAIClient();
+  if (!openai) {
+    throw new AINotConfiguredError();
+  }
+
   const response = await openai.responses.parse({
     model: TEXT_MODEL,
     instructions: params.instructions,

@@ -3,6 +3,7 @@ import { markStepComplete, markJobFailed } from "@/lib/pipeline/jobs";
 import { generateStructured } from "@/lib/ai/generate";
 import { marketingContentSchema } from "@/lib/ai/schemas";
 import { apiSuccess, apiError, withRoute } from "@/lib/api/response";
+import { AINotConfiguredError } from "@/lib/openai/client";
 
 const PLATFORMS = ["tiktok", "instagram_reels", "facebook"] as const;
 
@@ -93,6 +94,9 @@ export const POST = withRoute(
 
       return apiSuccess({ marketingContent: saved });
     } catch (err) {
+      if (err instanceof AINotConfiguredError) {
+        return apiError("AI_NOT_CONFIGURED", err.message, { status: 503 });
+      }
       const message = err instanceof Error ? err.message : "Marketing content generation failed";
       await markJobFailed(supabase, store.id, message);
       return apiError("AI_GENERATION_ERROR", message, { status: 500 });
