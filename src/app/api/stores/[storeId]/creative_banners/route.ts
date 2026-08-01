@@ -6,6 +6,7 @@ import type { CreativeBriefs } from "@/lib/ai/schemas";
 import type { CreativeAsset } from "@/types";
 import { apiSuccess, apiError, withRoute } from "@/lib/api/response";
 import { AINotConfiguredError } from "@/lib/openai/client";
+import type { createClient } from "@/lib/supabase/server";
 
 // Second of the two routes replacing the old combined "creative" step (see
 // src/app/api/stores/[storeId]/creative_logo/route.ts for the full incident
@@ -17,6 +18,13 @@ import { AINotConfiguredError } from "@/lib/openai/client";
 // specifically: if the deadline fires after 2 of 3 succeeded, those 2 are
 // already saved, and a retry only has to generate the missing one (checked
 // per-platform below) instead of redoing all 3 from scratch.
+//
+// Uses Promise.allSettled, not Promise.all: verified in production that a
+// fast failure on one banner (e.g. a rate limit, which rejects almost
+// instantly) otherwise short-circuits Promise.all before slower siblings
+// get a chance to finish and self-persist — losing exactly the partial
+// progress this design exists to keep. allSettled lets every banner run to
+// its own conclusion independently.
 const DEADLINE_MS = 24_000;
 
 const PLATFORMS = ["tiktok", "instagram", "facebook"] as const;
@@ -40,6 +48,53 @@ function withDeadline<T>(promise: Promise<T>, deadlineAt: number): Promise<T> {
       },
     );
   });
+}
+
+type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
+
+async function generateAndPersistBanner(
+  supabase: SupabaseServerClient,
+  storeId: string,
+  banner: CreativeBriefs["ad_banners"][number],
+): Promise<CreativeAsset> {
+  const buffer = await generateImageBuffer(banner.image_prompt).catch((err) => {
+    throw new Error(
+      `${banner.platform} ad banner image generation failed: ` +
+        `${err instanceof Error ? err.message : String(err)}`,
+    );
+  });
+  const imageUrl = await uploadGeneratedImage(`${storeId}/ad-${banner.platform}-${Date.now()}.png`, buffer);
+
+  const { data: saved, error } = await supabase
+    .from("creative_assets")
+    .insert({
+      store_id: storeId,
+      type: "ad_banner",
+      platform: banner.platform,
+      brief_text: banner.brief,
+      image_url: imageUrl,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    // A concurrent request already inserted this exact platform first — the
+    // creative_assets_unique_banner partial index rejects the second
+    // insert. Treat that as success.
+    if (error.code === "23505") {
+      const { data: raceWinner } = await supabase
+        .from("creative_assets")
+        .select("*")
+        .eq("store_id", storeId)
+        .eq("type", "ad_banner")
+        .eq("platform", banner.platform)
+        .maybeSingle();
+      return raceWinner as CreativeAsset;
+    }
+    throw new Error(`${banner.platform} ad banner failed to save: ${error.message}`);
+  }
+
+  return saved as CreativeAsset;
 }
 
 export const POST = withRoute(
@@ -83,59 +138,40 @@ export const POST = withRoute(
     const deadlineAt = startedAt + DEADLINE_MS;
 
     try {
-      const generated = await withDeadline(
-        Promise.all(
-          briefsToGenerate.map(async (banner) => {
-            const buffer = await generateImageBuffer(banner.image_prompt).catch((err) => {
-              throw new Error(
-                `${banner.platform} ad banner image generation failed: ` +
-                  `${err instanceof Error ? err.message : String(err)}`,
-              );
-            });
-            const imageUrl = await uploadGeneratedImage(
-              `${store.id}/ad-${banner.platform}-${Date.now()}.png`,
-              buffer,
-            );
-
-            // Persisted the moment this one image is ready, not batched
-            // with its siblings — see file header comment.
-            const { data: saved, error } = await supabase
-              .from("creative_assets")
-              .insert({
-                store_id: store.id,
-                type: "ad_banner",
-                platform: banner.platform,
-                brief_text: banner.brief,
-                image_url: imageUrl,
-              })
-              .select()
-              .single();
-
-            if (error) {
-              // A concurrent request already inserted this exact platform
-              // first — the creative_assets_unique_banner partial index
-              // rejects the second insert. Treat that as success.
-              if (error.code === "23505") {
-                const { data: raceWinner } = await supabase
-                  .from("creative_assets")
-                  .select("*")
-                  .eq("store_id", store.id)
-                  .eq("type", "ad_banner")
-                  .eq("platform", banner.platform)
-                  .maybeSingle();
-                return raceWinner as CreativeAsset;
-              }
-              throw error;
-            }
-
-            console.log(`[creative_banners] store=${store.id} ${banner.platform} done in ${Date.now() - startedAt}ms`);
-            return saved as CreativeAsset;
-          }),
+      const settled = await withDeadline(
+        Promise.allSettled(
+          briefsToGenerate.map((banner) => generateAndPersistBanner(supabase, store.id, banner)),
         ),
         deadlineAt,
       );
 
-      const allBannerAssets = [...existing, ...generated];
+      const newlyGenerated: CreativeAsset[] = [];
+      const failures: string[] = [];
+      settled.forEach((result, i) => {
+        if (result.status === "fulfilled") {
+          newlyGenerated.push(result.value);
+          console.log(
+            `[creative_banners] store=${store.id} ${briefsToGenerate[i].platform} done in ${Date.now() - startedAt}ms`,
+          );
+        } else {
+          failures.push(
+            result.reason instanceof Error ? result.reason.message : String(result.reason),
+          );
+        }
+      });
+
+      const allBannerAssets = [...existing, ...newlyGenerated];
+
+      if (failures.length > 0) {
+        // Whichever banners succeeded are already persisted (see
+        // generateAndPersistBanner) — a retry will skip them via the
+        // missingPlatforms check above and only redo what actually failed.
+        const message = failures.join("; ");
+        console.error(`[creative_banners] store=${store.id} partial failure:`, message);
+        await markJobFailed(supabase, store.id, message);
+        return apiError("AI_GENERATION_ERROR", message, { status: 500 });
+      }
+
       await markStepComplete(supabase, store.id, "creative_banners");
 
       console.log(`[creative_banners] store=${store.id} completed in ${Date.now() - startedAt}ms`);

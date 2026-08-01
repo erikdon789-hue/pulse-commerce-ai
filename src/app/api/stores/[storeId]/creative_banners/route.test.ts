@@ -46,6 +46,7 @@ function fakeSupabase(opts: {
         pendingInsert = payload;
         return chain;
       },
+      update: () => chain,
       maybeSingle: async () => {
         if (table === "brand_identity") return { data: opts.brand, error: null };
         if (table === "creative_assets" && platformFilter) {
@@ -199,6 +200,38 @@ describe("POST /api/stores/[storeId]/creative_banners", () => {
     expect(generateImageBuffer).toHaveBeenCalledTimes(2);
     expect(body.data.bannerAssets).toHaveLength(3);
     expect(supabase.__banners()).toHaveLength(3);
+  });
+
+  it("persists the banners that succeed even when a sibling fails fast (Promise.allSettled, not Promise.all)", async () => {
+    // Regression test for a bug found in production: facebook's OpenAI call
+    // rejected almost instantly (a rate limit), and with Promise.all that
+    // aborted the whole batch before tiktok/instagram — which take longer
+    // to "generate" — had a chance to finish and self-persist. Nothing got
+    // saved even though 2 of 3 would have succeeded given the chance.
+    const generateImageBuffer = vi.fn(async (prompt: string) => {
+      if (prompt === "facebook banner") {
+        throw new Error("429 status code (no body)");
+      }
+      return Buffer.from("fake-png-bytes");
+    });
+    const { POST, supabase } = await loadRouteWithMocks({
+      brand: { creative_brief: BRIEF },
+      generateImageBufferMock: generateImageBuffer,
+    });
+
+    const res = await POST(new Request("http://test", { method: "POST" }), {
+      params: Promise.resolve({ storeId: "store-1" }),
+    });
+    const body = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(body.ok).toBe(false);
+    expect(body.error.message).toContain("facebook");
+
+    // The critical assertion: tiktok and instagram succeeded and must be
+    // persisted despite facebook's fast failure.
+    const savedPlatforms = supabase.__banners().map((b) => (b as { platform: string }).platform).sort();
+    expect(savedPlatforms).toEqual(["instagram", "tiktok"]);
   });
 
   it("recovers cleanly when a concurrent request wins the insert race (23505) for one platform", async () => {
