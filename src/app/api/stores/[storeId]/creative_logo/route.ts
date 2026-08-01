@@ -15,7 +15,15 @@ import { AINotConfiguredError } from "@/lib/openai/client";
 // single image call, comfortably lighter than the old 4-image batch — and
 // src/app/api/stores/[storeId]/creative_banners/route.ts generates the 3 ad
 // banners as its own separately-invoked step.
-const DEADLINE_MS = 20_000;
+//
+// DEADLINE_MS was 20s initially. A direct isolated OpenAI call measured
+// 13.8s for this exact prompt shape at the same time production requests
+// were hitting the 20s deadline at 21-21.5s total — confirming real
+// end-to-end overhead (cold start, guard-check DB round trips, Netlify's
+// network path to OpenAI) adds several seconds beyond the raw image call,
+// same pattern seen tuning the old combined route. Raised to 24s, still
+// well under the ~30-34s observed proxy ceiling.
+const DEADLINE_MS = 24_000;
 
 class CreativeLogoTimeoutError extends Error {}
 
