@@ -1,5 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { apiSuccess, apiError, withRoute } from "@/lib/api/response";
+
+// Must match the free-credit grant in supabase/migrations/0003_auth_trigger.sql.
+const STARTER_CREDITS = 3;
 
 export const GET = withRoute(async () => {
   const supabase = await createClient();
@@ -61,21 +65,61 @@ export const POST = withRoute(async (request: Request) => {
   let creditsBalance: number | null = null;
 
   if (!devCreditBypass) {
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("credits_balance")
       .eq("id", user.id)
-      .single();
+      .maybeSingle();
 
-    if (!profile || profile.credits_balance < 1) {
+    // A real query failure (e.g. the Data API rejecting the request) must
+    // surface as an error, not get silently treated as "no credits" — that
+    // previously made unrelated infra failures look identical to a billing
+    // block. Only an actually-missing row falls through to provisioning.
+    if (profileError) {
+      return apiError("DATABASE_ERROR", profileError.message, { status: 500 });
+    }
+
+    if (profile) {
+      creditsBalance = profile.credits_balance;
+    } else {
+      // No profiles row for this user yet. 0003_auth_trigger.sql normally
+      // creates one with starter credits on signup; this covers accounts
+      // that predate the trigger or where it didn't fire. profiles has no
+      // client-side INSERT policy by design, so this needs the service-role
+      // client. Plain insert (not upsert) so a race with the trigger, or a
+      // retry, can never overwrite an existing balance back to the starter
+      // amount — a duplicate-key error just means it already exists.
+      const service = createServiceClient();
+      const { error: insertError } = await service.from("profiles").insert({
+        id: user.id,
+        email: user.email ?? "",
+        credits_balance: STARTER_CREDITS,
+      });
+
+      if (insertError && insertError.code !== "23505") {
+        return apiError("DATABASE_ERROR", insertError.message, { status: 500 });
+      }
+
+      const { data: provisioned, error: refetchError } = await service
+        .from("profiles")
+        .select("credits_balance")
+        .eq("id", user.id)
+        .single();
+
+      if (refetchError) {
+        return apiError("DATABASE_ERROR", refetchError.message, { status: 500 });
+      }
+
+      creditsBalance = provisioned.credits_balance;
+    }
+
+    if (creditsBalance === null || creditsBalance < 1) {
       return apiError(
         "INSUFFICIENT_CREDITS",
         "Not enough credits to start a new store build",
         { status: 402 },
       );
     }
-
-    creditsBalance = profile.credits_balance;
   }
 
   const { data: store, error } = await supabase
