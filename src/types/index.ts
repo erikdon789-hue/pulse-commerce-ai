@@ -17,6 +17,7 @@ export const PIPELINE_STEPS = [
   "ingest",
   "analyze",
   "brand",
+  "creative_brief",
   "creative",
   "content",
   "seo",

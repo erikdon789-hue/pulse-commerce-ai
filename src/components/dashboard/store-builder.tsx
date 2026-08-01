@@ -15,7 +15,8 @@ import type { PipelineStep } from "@/types";
 const GENERATION_STEPS: { step: PipelineStep; label: string }[] = [
   { step: "analyze", label: "Analyze viability & audience" },
   { step: "brand", label: "Generate brand identity" },
-  { step: "creative", label: "Generate creative & logo" },
+  { step: "creative_brief", label: "Write creative brief" },
+  { step: "creative", label: "Generate logo & ad images" },
   { step: "content", label: "Write product content" },
   { step: "seo", label: "Write SEO content" },
   { step: "marketing", label: "Write ad scripts" },
@@ -34,6 +35,7 @@ export function StoreBuilder({ initial }: { initial: StoreDetail }) {
     ingest: Boolean(detail.product),
     analyze: Boolean(detail.analysis),
     brand: Boolean(detail.brand),
+    creative_brief: Boolean(detail.brand?.creative_brief),
     creative: detail.creativeAssets.length > 0,
     content: Boolean(detail.content),
     seo: Boolean(detail.seo),
@@ -180,6 +182,13 @@ function mergeStepResult(
       return { ...prev, analysis: json.analysis as StoreDetail["analysis"] };
     case "brand":
       return { ...prev, brand: json.brand as StoreDetail["brand"] };
+    case "creative_brief":
+      return {
+        ...prev,
+        brand: prev.brand
+          ? ({ ...prev.brand, creative_brief: json.brief } as StoreDetail["brand"])
+          : prev.brand,
+      };
     case "creative":
       return {
         ...prev,

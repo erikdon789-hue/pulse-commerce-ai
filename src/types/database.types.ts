@@ -197,6 +197,7 @@ export interface Database {
           fonts: Json;
           tone_of_voice: string | null;
           logo_url: string | null;
+          creative_brief: Json | null;
           created_at: string;
         };
         Insert: {
@@ -208,6 +209,7 @@ export interface Database {
           fonts?: Json;
           tone_of_voice?: string | null;
           logo_url?: string | null;
+          creative_brief?: Json | null;
           created_at?: string;
         };
         Update: {
@@ -219,6 +221,7 @@ export interface Database {
           fonts?: Json;
           tone_of_voice?: string | null;
           logo_url?: string | null;
+          creative_brief?: Json | null;
           created_at?: string;
         };
         Relationships: [
