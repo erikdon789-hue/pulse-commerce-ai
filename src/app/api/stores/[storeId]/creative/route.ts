@@ -20,15 +20,23 @@ import { AINotConfiguredError } from "@/lib/openai/client";
 // streamed one). Splitting into two steps, each independently under that
 // window, is the fix that's actually been verified to work.
 //
-// DEADLINE_MS was 28s initially; raised after production evidence (3
-// consecutive clean, non-rate-limited runs at 29.6-31.4s total) showed the
-// real 4-concurrent-image OpenAI call alone was routinely taking >=28s in
-// production, well above the ~20-24s measured in isolated local testing.
-// 29.5s is a deliberately modest bump, not a confirmed-safe number — it's
-// still close to the ~30-34s proxy ceiling observed for the old combined
-// route, so this may need to come down (fewer concurrent images) rather
-// than up if OpenAI latency is consistently this high going forward.
-const DEADLINE_MS = 29_500;
+// DEADLINE_MS history, all measured directly against production:
+//   28s -> real runs took 29.6-31.4s, deadline fired every time (clean JSON,
+//         but never actually succeeded in one request).
+//   29.5s -> tried raising it to close that gap; instead one run took 33.28s
+//            and came back as a raw 502/text-plain platform error — the
+//            deadline lost the race against the real proxy cutoff.
+// Conclusion: the real 4-concurrent-image OpenAI call has enough production
+// variance (observed 24-33s+) that no value between ~26-30s reliably beats
+// the platform's own ~30-34s cutoff. Set conservatively low so this route's
+// hard requirement — always return valid JSON, never a raw platform crash —
+// actually holds, even though that means it will proactively time out
+// (clean, retryable 504) on most requests rather than completing in one
+// shot. Retrying picks up on OpenAI's inherent latency variance. If
+// one-shot success matters more than this margin, the real fix is
+// generating fewer images per request (e.g. logo and banners as separate
+// steps), not tuning this number further.
+const DEADLINE_MS = 22_000;
 
 class CreativeImagesTimeoutError extends Error {}
 
