@@ -2,7 +2,7 @@
 
 client_id = "0925b32b86e4850204886d6a2e035f45"
 name = "ai store builder 2"
-application_url = "https://reporters-families-webmasters-decisions.trycloudflare.com"
+application_url = "https://pulse-commerce-ai.netlify.app"
 embedded = false
 
 [webhooks]
@@ -16,5 +16,5 @@ use_legacy_install_flow = true
 
 [auth]
 redirect_urls = [
-  "https://reporters-families-webmasters-decisions.trycloudflare.com/api/shopify/oauth/callback"
+  "https://pulse-commerce-ai.netlify.app/api/shopify/oauth/callback"
 ]
