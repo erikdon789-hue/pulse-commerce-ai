@@ -16,7 +16,8 @@ const GENERATION_STEPS: { step: PipelineStep; label: string }[] = [
   { step: "analyze", label: "Analyze viability & audience" },
   { step: "brand", label: "Generate brand identity" },
   { step: "creative_brief", label: "Write creative brief" },
-  { step: "creative", label: "Generate logo & ad images" },
+  { step: "creative_logo", label: "Generate logo" },
+  { step: "creative_banners", label: "Generate ad banners" },
   { step: "content", label: "Write product content" },
   { step: "seo", label: "Write SEO content" },
   { step: "marketing", label: "Write ad scripts" },
@@ -36,7 +37,11 @@ export function StoreBuilder({ initial }: { initial: StoreDetail }) {
     analyze: Boolean(detail.analysis),
     brand: Boolean(detail.brand),
     creative_brief: Boolean(detail.brand?.creative_brief),
-    creative: detail.creativeAssets.length > 0,
+    creative_logo: detail.creativeAssets.some((a) => a.type === "logo"),
+    // All 3 platforms (tiktok, instagram, facebook) must be persisted —
+    // matches the per-platform idempotency check in
+    // src/app/api/stores/[storeId]/creative_banners/route.ts.
+    creative_banners: detail.creativeAssets.filter((a) => a.type === "ad_banner").length >= 3,
     content: Boolean(detail.content),
     seo: Boolean(detail.seo),
     marketing: detail.marketingContent.length > 0,
@@ -189,10 +194,24 @@ function mergeStepResult(
           ? ({ ...prev.brand, creative_brief: json.brief } as StoreDetail["brand"])
           : prev.brand,
       };
-    case "creative":
+    case "creative_logo": {
+      const logoAsset = json.logoAsset as StoreDetail["creativeAssets"][number];
       return {
         ...prev,
-        creativeAssets: json.creativeAssets as StoreDetail["creativeAssets"],
+        creativeAssets: [
+          ...prev.creativeAssets.filter((a) => a.type !== "logo"),
+          logoAsset,
+        ],
+        brand: prev.brand ? { ...prev.brand, logo_url: logoAsset.image_url } : prev.brand,
+      };
+    }
+    case "creative_banners":
+      return {
+        ...prev,
+        creativeAssets: [
+          ...prev.creativeAssets.filter((a) => a.type !== "ad_banner"),
+          ...(json.bannerAssets as StoreDetail["creativeAssets"]),
+        ],
       };
     case "content":
       return { ...prev, content: json.content as StoreDetail["content"] };

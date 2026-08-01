@@ -5,12 +5,14 @@ import { creativeBriefsSchema, type CreativeBriefs } from "@/lib/ai/schemas";
 import { apiSuccess, apiError, withRoute } from "@/lib/api/response";
 import { AINotConfiguredError } from "@/lib/openai/client";
 
-// First half of the former single "creative" step, split out so each half
-// individually finishes well under Netlify's ~30s proxy inactivity timeout
-// (see src/app/api/stores/[storeId]/creative/route.ts for the full
-// incident writeup). This step only generates and persists the brief —
-// image generation happens in the "creative" step, which reads the brief
-// back from brand_identity.creative_brief.
+// First of what's now three pipeline steps replacing the original single
+// "creative" step, split out so each piece individually finishes well under
+// Netlify's ~30s proxy inactivity timeout (see
+// src/app/api/stores/[storeId]/creative_logo/route.ts and .../creative_banners/
+// for the other two, and their git history for the full incident writeup).
+// This step only generates and persists the brief — image generation
+// happens in creative_logo and creative_banners, which read the brief back
+// from brand_identity.creative_brief.
 const DEADLINE_MS = 25_000;
 
 class CreativeBriefTimeoutError extends Error {}
