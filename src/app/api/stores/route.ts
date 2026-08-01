@@ -50,18 +50,32 @@ export const POST = withRoute(async (request: Request) => {
     return apiError("UNAUTHENTICATED", "Not authenticated", { status: 401 });
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("credits_balance")
-    .eq("id", user.id)
-    .single();
+  // Dev-only escape hatch, same shape as MOCK_DATA_API in .env.local.example.
+  // Double-gated so it can never activate against a real deployment: Netlify/
+  // Vercel/`next build` all set NODE_ENV=production regardless of what env
+  // vars happen to be set, so this stays off even if ALLOW_DEV_CREDIT_BYPASS
+  // is left on in a misconfigured environment.
+  const devCreditBypass =
+    process.env.NODE_ENV !== "production" && process.env.ALLOW_DEV_CREDIT_BYPASS === "true";
 
-  if (!profile || profile.credits_balance < 1) {
-    return apiError(
-      "INSUFFICIENT_CREDITS",
-      "Not enough credits to start a new store build",
-      { status: 402 },
-    );
+  let creditsBalance: number | null = null;
+
+  if (!devCreditBypass) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("credits_balance")
+      .eq("id", user.id)
+      .single();
+
+    if (!profile || profile.credits_balance < 1) {
+      return apiError(
+        "INSUFFICIENT_CREDITS",
+        "Not enough credits to start a new store build",
+        { status: 402 },
+      );
+    }
+
+    creditsBalance = profile.credits_balance;
   }
 
   const { data: store, error } = await supabase
@@ -75,16 +89,19 @@ export const POST = withRoute(async (request: Request) => {
   }
 
   // Reserve the credit up front rather than at completion, so a user can't
-  // start unlimited concurrent builds against the same balance.
-  await supabase
-    .from("profiles")
-    .update({ credits_balance: profile.credits_balance - 1 })
-    .eq("id", user.id);
-  await supabase.from("credit_ledger").insert({
-    owner_id: user.id,
-    amount: -1,
-    reason: "store_build",
-  });
+  // start unlimited concurrent builds against the same balance. Skipped
+  // entirely in the dev bypass — no ledger entry, no balance mutation.
+  if (!devCreditBypass && creditsBalance !== null) {
+    await supabase
+      .from("profiles")
+      .update({ credits_balance: creditsBalance - 1 })
+      .eq("id", user.id);
+    await supabase.from("credit_ledger").insert({
+      owner_id: user.id,
+      amount: -1,
+      reason: "store_build",
+    });
+  }
 
   return apiSuccess({ store }, { status: 201 });
 });
