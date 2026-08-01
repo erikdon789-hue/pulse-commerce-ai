@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
-import { stripe } from "@/lib/stripe/client";
+import { getStripe } from "@/lib/stripe/client";
 import { createServiceClient } from "@/lib/supabase/service";
 import { PLANS, planIdForPriceId } from "@/lib/stripe/plans";
 import { withRoute } from "@/lib/api/response";
@@ -45,6 +45,15 @@ async function grantCredits(
 }
 
 export const POST = withRoute(async (request: Request) => {
+  const stripe = getStripe();
+
+  if (!stripe) {
+    return NextResponse.json(
+      { error: "Payments are not configured yet" },
+      { status: 503 },
+    );
+  }
+
   const body = await request.text();
   const signature = request.headers.get("stripe-signature");
 

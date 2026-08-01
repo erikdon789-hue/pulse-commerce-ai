@@ -1,9 +1,19 @@
-import { stripe } from "@/lib/stripe/client";
+import { getStripe } from "@/lib/stripe/client";
 import { createClient } from "@/lib/supabase/server";
 import { PLANS, type PlanId } from "@/lib/stripe/plans";
 import { apiSuccess, apiError, withRoute } from "@/lib/api/response";
 
 export const POST = withRoute(async (request: Request) => {
+  const stripe = getStripe();
+
+  if (!stripe) {
+    return apiError(
+      "STRIPE_NOT_CONFIGURED",
+      "Payments are not configured yet",
+      { status: 503 }
+    );
+  }
+
   const { planId } = await request.json();
 
   if (!planId || !(planId in PLANS)) {
