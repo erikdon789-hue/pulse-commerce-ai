@@ -7,7 +7,7 @@ import { apiSuccess, apiError, withRoute } from "@/lib/api/response";
 import { AINotConfiguredError } from "@/lib/openai/client";
 
 // Second half of the former single "creative" step (see
-// src/app/api/stores/[storeId]/creative-brief/route.ts for the brief half
+// src/app/api/stores/[storeId]/creative_brief/route.ts for the brief half
 // and the full incident writeup). Reproduced directly against production:
 // the original combined route (brief + 4 image generations + uploads, ~40s
 // total) reliably tripped Netlify's ~30-34s proxy inactivity timeout, which
@@ -17,9 +17,18 @@ import { AINotConfiguredError } from "@/lib/openai/client";
 // already received the timeout. A response-streaming keep-alive was also
 // tried and reproducibly failed (this Netlify/Next.js adapter does not
 // keep background work alive after the handler returns a Response, even a
-// streamed one). Splitting into two steps, each comfortably under that
-// window on its own, is the fix that's actually been verified to work.
-const DEADLINE_MS = 28_000;
+// streamed one). Splitting into two steps, each independently under that
+// window, is the fix that's actually been verified to work.
+//
+// DEADLINE_MS was 28s initially; raised after production evidence (3
+// consecutive clean, non-rate-limited runs at 29.6-31.4s total) showed the
+// real 4-concurrent-image OpenAI call alone was routinely taking >=28s in
+// production, well above the ~20-24s measured in isolated local testing.
+// 29.5s is a deliberately modest bump, not a confirmed-safe number — it's
+// still close to the ~30-34s proxy ceiling observed for the old combined
+// route, so this may need to come down (fewer concurrent images) rather
+// than up if OpenAI latency is consistently this high going forward.
+const DEADLINE_MS = 29_500;
 
 class CreativeImagesTimeoutError extends Error {}
 
