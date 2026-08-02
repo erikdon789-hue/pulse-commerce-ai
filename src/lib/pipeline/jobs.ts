@@ -1,7 +1,11 @@
-import type { createClient } from "@/lib/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/database.types";
 import type { PipelineStep } from "@/types";
 
-type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
+// Accepts either the cookie-bound SSR client (Next.js routes) or the
+// service-role client (Netlify Background Functions, which have no request/
+// cookie context) — both are SupabaseClient<Database> underneath.
+type SupabaseServerClient = SupabaseClient<Database>;
 
 // Finds (or creates) the store's current in-progress build job and appends
 // `step` to it. Read-modify-write is fine here: pipeline steps are driven

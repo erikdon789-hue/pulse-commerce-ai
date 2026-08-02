@@ -25,6 +25,42 @@ const GENERATION_STEPS: { step: PipelineStep; label: string }[] = [
 
 type TabKey = "analysis" | "brand" | "content" | "seo" | "marketing";
 
+// creative_logo and creative_banners run as Netlify Background Functions
+// (see their routes for why) — the POST only starts the job, so these two
+// need polling for completion instead of a single await.
+const ASYNC_STEPS = new Set<PipelineStep>(["creative_logo", "creative_banners"]);
+const POLL_INTERVAL_MS = 2000;
+const POLL_TIMEOUT_MS = 5 * 60 * 1000;
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function runStep(storeId: string, step: PipelineStep): Promise<Record<string, unknown>> {
+  const data = await fetchJson<Record<string, unknown>>(`/api/stores/${storeId}/${step}`, {
+    method: "POST",
+  });
+
+  if (!ASYNC_STEPS.has(step) || data.status === "done") {
+    return data;
+  }
+
+  const deadline = Date.now() + POLL_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    await sleep(POLL_INTERVAL_MS);
+    const statusData = await fetchJson<Record<string, unknown>>(
+      `/api/stores/${storeId}/${step}`,
+      { method: "GET" },
+    );
+    if (statusData.status === "done") return statusData;
+    if (statusData.status === "failed") {
+      throw new Error(typeof statusData.error === "string" ? statusData.error : `${step} failed`);
+    }
+  }
+
+  throw new Error(`${step} is taking longer than expected — please try again`);
+}
+
 export function StoreBuilder({ initial }: { initial: StoreDetail }) {
   const [detail, setDetail] = useState(initial);
   const [running, setRunning] = useState(false);
@@ -60,10 +96,7 @@ export function StoreBuilder({ initial }: { initial: StoreDetail }) {
         if (isDone[step]) continue;
         setCurrentStep(label);
 
-        const data = await fetchJson<Record<string, unknown>>(
-          `/api/stores/${detail.store.id}/${step}`,
-          { method: "POST" },
-        );
+        const data = await runStep(detail.store.id, step);
 
         setDetail((prev) => mergeStepResult(prev, step, data));
       }
