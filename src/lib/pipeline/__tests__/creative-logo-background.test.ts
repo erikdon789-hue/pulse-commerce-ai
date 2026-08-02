@@ -97,7 +97,7 @@ async function loadHandlerWithMocks(opts: {
   vi.doMock("@/lib/ai/images", () => ({ generateImageBuffer }));
   vi.doMock("@/lib/supabase/storage", () => ({ uploadGeneratedImage }));
 
-  const mod = await import("./creative-logo-background");
+  const mod = await import("../../../../netlify/functions/creative-logo-background");
   return { handler: mod.default, supabase, generateImageBuffer };
 }
 
